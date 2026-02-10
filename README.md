@@ -46,6 +46,34 @@ npm run build
 npm start
 ```
 
+## MVP (in progress)
+
+Execution plan and PMP are in `docs/`:
+
+- **[docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md)** — Scope, schedule, success criteria, risks
+- **[docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)** — Tech stack, repo structure, build order
+
+### Quick start (API + DB)
+
+1. Copy `.env.example` to `.env` and set `DATABASE_URL` (e.g. [Neon](https://neon.tech) Postgres).
+2. Run migrations: `npm run db:migrate:run`
+3. Start dev: `npm run dev`
+
+### API (no auth in MVP)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET/POST | `/api/feeds` | List feeds, create feed (type: `rss` \| `github_releases` \| `http_json`) |
+| GET | `/api/feeds/[id]` | Get one feed |
+| GET/POST | `/api/subscriptions` | List subscriptions, create (feedId, name, webhookUrl, filters) |
+| GET | `/api/subscriptions/[id]/pull` | Pull-based delivery (when `pullEnabled`) |
+| GET | `/api/events` | List events (?feedId=, ?limit=) |
+| POST | `/api/poll/[feedId]` | Manually trigger poll for a feed |
+
+Webhooks send `POST` with JSON body and `x-wakenet-signature` (HMAC-SHA256 of body). Inngest cron runs every 5 min to poll due feeds; register at [Inngest](https://inngest.com) and set `INNGEST_SIGNING_KEY` for production.
+
+---
+
 ## Stack
 
 - **Next.js 14** (App Router), **Tailwind CSS**, **TypeScript**
