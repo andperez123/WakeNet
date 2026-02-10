@@ -11,10 +11,15 @@ if (!connectionString) {
 const sql = neon(connectionString);
 
 async function runMigration(name: string, content: string) {
-  const statements = content
+  // Strip full-line comments before splitting so they don't hide real statements
+  const cleaned = content
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n");
+  const statements = cleaned
     .split(/;\s*\n/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !s.startsWith("--"));
+    .filter((s) => s.length > 0);
   for (const statement of statements) {
     await sql(statement + ";");
   }
