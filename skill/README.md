@@ -2,16 +2,36 @@
 
 This folder contains an **AgentSkills-compatible** skill so OpenClaw/Clawdbot agents can use WakeNet (event-driven wake, webhook verification, MCP integration).
 
+The skill includes:
+- **SKILL.md** — instructions and docs (YAML frontmatter + markdown).
+- **action.json** — Clawdbot skill manifest (required for Clawdbot to list and load the skill).
+
 ## Install
 
-**Option A — Copy into your OpenClaw skills**
+**Option A — Clawdbot (skills dir with manifest)**
+
+Copy the **entire** `wakenet-listener` folder so both `SKILL.md` and `action.json` are present:
+
+```bash
+mkdir -p ~/clawd/Skills/wakenet-listener
+cp -r skill/wakenet-listener/* ~/clawd/Skills/wakenet-listener/
+# or, from repo root: cp -r skill/wakenet-listener ~/clawd/Skills/
+```
+
+Then restart Clawdbot and verify:
+
+```bash
+clawdbot skills list
+# Expect: wakenet-listener appears
+```
+
+**Option B — OpenClaw (e.g. ~/.openclaw/skills)**
 
 ```bash
 cp -r skill/wakenet-listener ~/.openclaw/skills/
-# or into your workspace: cp -r skill/wakenet-listener /path/to/workspace/skills/
 ```
 
-**Option B — ClawHub (if published)**
+**Option C — ClawHub (if published)**
 
 ```bash
 clawhub install wakenet/wakenet-listener
@@ -50,5 +70,6 @@ See [mcp-server/README.md](../mcp-server/README.md) for full setup.
 
 ## Skill format
 
-- `SKILL.md` with YAML frontmatter (`name`, `description`, `metadata`) and markdown body.
-- Compatible with [OpenClaw Skills](https://docs.clawd.bot/tools/skills) and [AgentSkills](https://agentskills.io).
+- **SKILL.md** — YAML frontmatter (`name`, `description`, `metadata`) and markdown body.
+- **action.json** — Clawdbot manifest (`name`, `description`, `version`, `instructionsFile`). Clawdbot won’t list the skill without it.
+- Compatible with [OpenClaw Skills](https://docs.clawd.bot/tools/skills), [AgentSkills](https://agentskills.io), and Clawdbot.

@@ -1,0 +1,6 @@
+{
+  "name": "wakenet-listener",
+  "description": "WakeNet listener instructions + MCP usage for WakeNet.",
+  "version": "0.0.1",
+  "instructionsFile": "SKILL.md"
+}
