@@ -1,9 +1,13 @@
 import { db } from "../db";
-import { feeds, events, subscriptions, deliveries } from "../db/schema";
+import { feeds, events, subscriptions, deliveries, digestQueue } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { pollFeed } from "../ingestion";
-import { contentHash, matchesFilters } from "../processing";
-import { deliverWebhook, type WebhookPayload } from "../delivery";
+import { contentHash, matchesFilters, promoScoreEvent } from "../processing";
+import {
+  deliverWebhook,
+  buildPromoterPayload,
+  type WebhookPayload,
+} from "../delivery";
 import type { FeedType, FeedConfig, SubscriptionFilters } from "../types";
 
 export type RunFeedPollResult =
@@ -72,30 +76,54 @@ export async function runFeedPoll(feedId: string): Promise<RunFeedPollResult> {
     .where(and(eq(subscriptions.feedId, feedId), eq(subscriptions.enabled, true)));
 
   let deliveriesCreated = 0;
+  const nowMs = now.getTime();
+  const subLastDelivery = new Map<string, number>();
   for (const sub of subs) {
     if (!sub.webhookUrl) continue;
     const filters = (sub.filters as SubscriptionFilters | null) ?? undefined;
+    const minScore = filters?.minScore ?? 0;
+    const outputFormat = sub.outputFormat ?? "default";
+    const deliveryMode = sub.deliveryMode ?? "immediate";
+    const rateLimitMin = sub.deliveryRateLimitMinutes ?? 0;
+    const lastDeliveryAt =
+      subLastDelivery.get(sub.id) ??
+      (sub.lastDeliveryAt ? new Date(sub.lastDeliveryAt).getTime() : 0);
+    const rateLimitOk = rateLimitMin === 0 || nowMs - lastDeliveryAt >= rateLimitMin * 60 * 1000;
+
     for (const { eventId, normalized } of newEvents) {
       if (!matchesFilters(normalized, filters)) continue;
+      const score = promoScoreEvent(normalized, filters);
+      if (score < minScore) continue;
+
+      if (deliveryMode === "daily_digest") {
+        await db.insert(digestQueue).values({ subscriptionId: sub.id, eventId });
+        deliveriesCreated++;
+        continue;
+      }
 
       const [del] = await db
         .insert(deliveries)
         .values({
           subscriptionId: sub.id,
           eventId,
-          status: "pending",
+          status: rateLimitOk ? "pending" : "queued",
           retries: 0,
         })
         .returning({ id: deliveries.id });
       if (!del) continue;
       deliveriesCreated++;
 
-      const payload: WebhookPayload = {
-        id: eventId,
-        feedId,
-        event: normalized,
-        deliveredAt: new Date().toISOString(),
-      };
+      if (!rateLimitOk) continue;
+
+      const payload =
+        outputFormat === "promoter"
+          ? buildPromoterPayload(normalized, eventId, "feed_event")
+          : ({
+              id: eventId,
+              feedId,
+              event: normalized,
+              deliveredAt: new Date().toISOString(),
+            } as WebhookPayload);
       const { ok, status } = await deliverWebhook(sub.webhookUrl, payload, sub.secret);
       await db
         .update(deliveries)
@@ -105,6 +133,13 @@ export async function runFeedPoll(feedId: string): Promise<RunFeedPollResult> {
           lastAttemptAt: new Date(),
         })
         .where(eq(deliveries.id, del.id));
+      if (ok) {
+        subLastDelivery.set(sub.id, nowMs);
+        await db
+          .update(subscriptions)
+          .set({ lastDeliveryAt: new Date(), updatedAt: new Date() })
+          .where(eq(subscriptions.id, sub.id));
+      }
     }
   }
 

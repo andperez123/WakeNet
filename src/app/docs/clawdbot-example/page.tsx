@@ -125,6 +125,13 @@ export async function POST(req: Request) {
         </ul>
       </section>
 
+      <section className="mt-10 rounded-xl border border-wakenet-border bg-wakenet-surface/30 p-4">
+        <h2 className="font-display text-lg font-semibold text-white">OpenClaw / Clawdbot skill</h2>
+        <p className="mt-2 text-sm text-gray-400">
+          The repo includes an AgentSkills-compatible skill so OpenClaw/Clawdbot agents can use WakeNet. Copy <code className="rounded bg-wakenet-border px-1">skill/wakenet-listener</code> into <code className="rounded bg-wakenet-border px-1">~/.openclaw/skills/</code> or your workspace <code className="rounded bg-wakenet-border px-1">skills/</code>. See the repo <a href="https://github.com/andperez123/WakeNet" className="text-wakenet-accent hover:underline">WakeNet on GitHub</a>.
+        </p>
+      </section>
+
       <p className="mt-10">
         <Link href="/docs" className="text-wakenet-accent hover:underline">← Back to Docs</Link>
       </p>

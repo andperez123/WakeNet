@@ -28,9 +28,14 @@ export const subscriptions = pgTable("subscriptions", {
   name: text("name").notNull(),
   webhookUrl: text("webhook_url"),
   pullEnabled: boolean("pull_enabled").notNull().default(false),
-  filters: jsonb("filters"), // { includeKeywords?: string[], excludeKeywords?: string[] }
-  secret: text("secret").notNull(), // HMAC secret
+  filters: jsonb("filters"), // { includeKeywords?, excludeKeywords?, minScore? }
+  secret: text("secret").notNull(),
   enabled: boolean("enabled").notNull().default(true),
+  outputFormat: text("output_format").notNull().default("default"), // 'default' | 'promoter'
+  deliveryRateLimitMinutes: integer("delivery_rate_limit_minutes"),
+  deliveryMode: text("delivery_mode").notNull().default("immediate"), // 'immediate' | 'daily_digest'
+  digestScheduleTime: text("digest_schedule_time"), // e.g. '09:00' UTC
+  lastDeliveryAt: timestamp("last_delivery_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -61,10 +66,21 @@ export const deliveries = pgTable("deliveries", {
   eventId: uuid("event_id")
     .notNull()
     .references(() => events.id, { onDelete: "cascade" }),
-  status: text("status").notNull(), // 'pending' | 'sent' | 'failed'
+  status: text("status").notNull(), // 'pending' | 'sent' | 'failed' | 'queued'
   responseCode: integer("response_code"),
   retries: integer("retries").notNull().default(0),
   lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const digestQueue = pgTable("digest_queue", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  subscriptionId: uuid("subscription_id")
+    .notNull()
+    .references(() => subscriptions.id, { onDelete: "cascade" }),
+  eventId: uuid("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -76,3 +92,5 @@ export type Event = typeof events.$inferSelect;
 export type NewEvent = typeof events.$inferInsert;
 export type Delivery = typeof deliveries.$inferSelect;
 export type NewDelivery = typeof deliveries.$inferInsert;
+export type DigestQueue = typeof digestQueue.$inferSelect;
+export type NewDigestQueue = typeof digestQueue.$inferInsert;

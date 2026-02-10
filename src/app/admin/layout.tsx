@@ -1,10 +1,30 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import AdminGate from "./AdminGate";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const secret = process.env.ADMIN_SECRET;
+  const cookieStore = await cookies();
+  const adminCookie = cookieStore.get("wakenet_admin")?.value;
+  const allowed = !secret || adminCookie === "1";
+
+  if (!allowed) {
+    return (
+      <div className="min-h-screen bg-wakenet-bg text-gray-200">
+        <header className="border-b border-wakenet-border bg-wakenet-bg/95 px-6 py-4">
+          <Link href="/" className="font-display text-lg font-semibold text-white hover:text-wakenet-accent">
+            WakeNet
+          </Link>
+        </header>
+        <AdminGate />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-wakenet-bg text-gray-200">
       <header className="sticky top-0 z-50 border-b border-wakenet-border bg-wakenet-bg/95 backdrop-blur">

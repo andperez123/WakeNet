@@ -3,7 +3,8 @@
 ## Admin UI
 
 - **URL:** `https://wake-net.vercel.app/admin` (or your deployment URL + `/admin`)
-- **Dashboard:** Counts for feeds, subscriptions, events
+- **Protection:** If `ADMIN_SECRET` is set in Vercel (or `.env`), visiting `/admin` shows an unlock form; enter the secret to get a cookie and access the dashboard.
+- **Dashboard:** Counts for feeds, subscriptions, events; deliveries in the last 24h (sent / failed / queued)
 - **Feeds:** Add RSS, GitHub Releases, or HTTP JSON feeds; trigger manual poll
 - **Subscriptions:** Add webhook subscriptions per feed
 - **Events:** Browse recent normalized events

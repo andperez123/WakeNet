@@ -72,9 +72,11 @@ Execution plan and PMP are in `docs/`:
 
 Webhooks send `POST` with JSON body and `x-wakenet-signature` (HMAC-SHA256 of body).
 
-**Admin UI:** `/admin` — dashboard, feeds, subscriptions, events. Link in footer.
+**Admin UI:** `/admin` — dashboard, feeds, subscriptions, events. Optional `ADMIN_SECRET` env var gates access. **Health:** `GET /api/health` returns `{ ok, db }`.
 
 **Inngest + Clawdbot:** [docs/SETUP.md](docs/SETUP.md) — enable automatic polling and verify webhooks in your agent.
+
+**OpenClaw / Clawdbot skill:** [skill/wakenet-listener](skill/wakenet-listener/) — AgentSkills-compatible skill so other OpenClaws can use WakeNet. Copy `skill/wakenet-listener` into `~/.openclaw/skills/` or your workspace `skills/`; see [skill/README.md](skill/README.md).
 
 ---
 

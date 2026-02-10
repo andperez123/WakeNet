@@ -11,7 +11,15 @@ const createBodySchema = z.object({
   webhookUrl: z.string().url().optional(),
   pullEnabled: z.boolean().optional(),
   filters: subscriptionFiltersSchema.optional(),
+  outputFormat: z.enum(["default", "promoter"]).optional(),
+  deliveryRateLimitMinutes: z.number().int().min(0).max(1440).optional(),
+  deliveryMode: z.enum(["immediate", "daily_digest"]).optional(),
+  digestScheduleTime: z.string().regex(/^\d{1,2}:\d{2}$/).optional(), // e.g. "09:00" UTC (stored normalized)
 });
+function normalizeHHMM(s: string): string {
+  const [h, m] = s.split(":");
+  return `${h!.padStart(2, "0")}:${m!.padStart(2, "0")}`;
+}
 
 export async function GET() {
   if (!db) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
@@ -36,6 +44,10 @@ export async function POST(req: Request) {
       pullEnabled: parsed.data.pullEnabled ?? false,
       filters: (parsed.data.filters as Record<string, unknown>) ?? null,
       secret,
+      outputFormat: parsed.data.outputFormat ?? "default",
+      deliveryRateLimitMinutes: parsed.data.deliveryRateLimitMinutes ?? null,
+      deliveryMode: parsed.data.deliveryMode ?? "immediate",
+      digestScheduleTime: parsed.data.digestScheduleTime ? normalizeHHMM(parsed.data.digestScheduleTime) : null,
     })
     .returning();
   return NextResponse.json({ ...sub, secret }); // return secret only on create

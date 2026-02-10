@@ -1,22 +1,28 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
-import { feeds, subscriptions, events } from "@/lib/db/schema";
+import { db, feeds, subscriptions, events, deliveries } from "@/lib/db";
+import { gte } from "drizzle-orm";
 
 async function getCounts() {
-  if (!db) return { feeds: 0, subscriptions: 0, eventsCount: 0 };
+  if (!db) return { feeds: 0, subscriptions: 0, eventsCount: 0, deliveryStats: null };
   try {
-    const [feedsList, subsList, eventsList] = await Promise.all([
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [feedsList, subsList, eventsList, deliveriesList] = await Promise.all([
       db.select({ id: feeds.id }).from(feeds),
       db.select({ id: subscriptions.id }).from(subscriptions),
       db.select({ id: events.id }).from(events),
+      db.select({ status: deliveries.status }).from(deliveries).where(gte(deliveries.createdAt, since)),
     ]);
+    const sent24h = deliveriesList.filter((d) => d.status === "sent").length;
+    const failed24h = deliveriesList.filter((d) => d.status === "failed").length;
+    const queued24h = deliveriesList.filter((d) => d.status === "queued").length;
     return {
       feeds: feedsList.length,
       subscriptions: subsList.length,
       eventsCount: eventsList.length,
+      deliveryStats: { sent24h, failed24h, queued24h },
     };
   } catch {
-    return { feeds: 0, subscriptions: 0, eventsCount: 0 };
+    return { feeds: 0, subscriptions: 0, eventsCount: 0, deliveryStats: null };
   }
 }
 
@@ -53,6 +59,22 @@ export default async function AdminDashboard() {
           <div className="mt-1 text-sm text-gray-400">Events</div>
         </Link>
       </div>
+      {counts.deliveryStats && (
+        <div className="mt-8 rounded-xl border border-wakenet-border bg-wakenet-surface/30 p-6">
+          <h2 className="font-display text-lg font-semibold text-white">Deliveries (last 24h)</h2>
+          <div className="mt-3 flex gap-6">
+            <span className="text-sm text-gray-400">
+              Sent <strong className="text-wakenet-green">{counts.deliveryStats.sent24h}</strong>
+            </span>
+            <span className="text-sm text-gray-400">
+              Failed <strong className="text-red-400">{counts.deliveryStats.failed24h}</strong>
+            </span>
+            <span className="text-sm text-gray-400">
+              Queued <strong className="text-wakenet-accent">{counts.deliveryStats.queued24h}</strong>
+            </span>
+          </div>
+        </div>
+      )}
       <div className="mt-10 rounded-xl border border-wakenet-border bg-wakenet-surface/30 p-6">
         <h2 className="font-display text-lg font-semibold text-white">
           Quick actions
