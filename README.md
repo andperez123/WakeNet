@@ -70,7 +70,11 @@ Execution plan and PMP are in `docs/`:
 | GET | `/api/events` | List events (?feedId=, ?limit=) |
 | POST | `/api/poll/[feedId]` | Manually trigger poll for a feed |
 
-Webhooks send `POST` with JSON body and `x-wakenet-signature` (HMAC-SHA256 of body). Inngest cron runs every 5 min to poll due feeds; register at [Inngest](https://inngest.com) and set `INNGEST_SIGNING_KEY` for production.
+Webhooks send `POST` with JSON body and `x-wakenet-signature` (HMAC-SHA256 of body).
+
+**Admin UI:** `/admin` — dashboard, feeds, subscriptions, events. Link in footer.
+
+**Inngest + Clawdbot:** [docs/SETUP.md](docs/SETUP.md) — enable automatic polling and verify webhooks in your agent.
 
 ---
 

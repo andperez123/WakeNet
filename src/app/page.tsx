@@ -387,20 +387,20 @@ export default function Home() {
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Link
-                href="#"
+                href="/docs#quick-start"
                 className="inline-flex items-center gap-2 rounded-lg bg-wakenet-accent px-5 py-3 text-sm font-semibold text-wakenet-bg transition hover:bg-wakenet-accent/90"
               >
                 Install WakeNet
                 <span>→</span>
               </Link>
               <Link
-                href="#"
+                href="/docs"
                 className="inline-flex items-center gap-2 rounded-lg border border-wakenet-border px-5 py-3 text-sm font-medium text-gray-300 transition hover:border-wakenet-accent/50 hover:text-white"
               >
                 View Docs
               </Link>
               <Link
-                href="#"
+                href="/docs/clawdbot-example"
                 className="inline-flex items-center gap-2 rounded-lg border border-wakenet-border px-5 py-3 text-sm font-medium text-gray-300 transition hover:border-wakenet-accent/50 hover:text-white"
               >
                 See Clawdbot Example
@@ -412,9 +412,14 @@ export default function Home() {
 
       <footer className="border-t border-wakenet-border px-6 py-8">
         <div className="mx-auto max-w-4xl flex items-center justify-between">
-          <span className="font-display text-sm font-medium text-gray-500">
-            WakeNet
-          </span>
+          <div className="flex items-center gap-6">
+            <span className="font-display text-sm font-medium text-gray-500">
+              WakeNet
+            </span>
+            <Link href="/admin" className="text-sm text-gray-500 hover:text-wakenet-accent transition">
+              Admin
+            </Link>
+          </div>
           <span className="text-sm text-gray-600">
             Event-driven wake infrastructure for AI agents
           </span>
