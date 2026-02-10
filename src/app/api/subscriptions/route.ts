@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { subscriptions } from "@/lib/db/schema";
 import { subscriptionFiltersSchema } from "@/lib/types";
+import { requireApiKey } from "@/lib/auth";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 
@@ -28,6 +29,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const authError = requireApiKey(req);
+  if (authError) return authError;
   if (!db) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   const body = await req.json();
   const parsed = createBodySchema.safeParse(body);

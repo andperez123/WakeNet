@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { runFeedPoll } from "@/lib/pipeline/run";
+import { requireApiKey } from "@/lib/auth";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ feedId: string }> }
 ) {
+  const authError = requireApiKey(req);
+  if (authError) return authError;
   const { feedId } = await params;
   try {
     const result = await runFeedPoll(feedId);

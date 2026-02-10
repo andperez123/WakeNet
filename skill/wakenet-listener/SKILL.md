@@ -14,10 +14,34 @@ WakeNet delivers normalized, deduplicated events to a webhook so agents run only
 - User wants to replace cron/polling with push-based wake.
 - User asks how to receive WakeNet events or verify webhook signatures.
 
-## Quick flow
+## MCP integration (recommended)
+
+WakeNet ships an MCP server so any MCP-aware agent can call it directly.
+
+**Setup:** Add to your Cursor or Claude Desktop MCP config:
+
+```json
+{
+  "mcpServers": {
+    "wakenet": {
+      "command": "npx",
+      "args": ["tsx", "/path/to/WakeNet/mcp-server/index.ts"],
+      "env": {
+        "WAKENET_URL": "https://wake-net.vercel.app",
+        "WAKENET_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+**Available tools:** `wakenet_list_feeds`, `wakenet_create_feed`, `wakenet_create_subscription`, `wakenet_list_events`, `wakenet_poll_feed`, `wakenet_pull_events`, `wakenet_health`.
+
+## REST API flow (manual)
 
 1. **Create a feed** (WakeNet API or [Admin](https://wake-net.vercel.app/admin)):
    - `POST https://wake-net.vercel.app/api/feeds` with `{ "type": "rss"|"github_releases"|"http_json", "config": { ... } }`.
+   - Include `Authorization: Bearer <WAKENET_API_KEY>` if the server has API key auth enabled.
 2. **Create a subscription** with the user's webhook URL. Save the returned `secret`; it is shown only once.
 3. **Verify incoming webhooks** using the raw body and `x-wakenet-signature` (HMAC-SHA256 of body with `secret`).
 
@@ -36,7 +60,24 @@ const payload = JSON.parse(req.body.toString());
 // payload.event: { id, source, title, link, published, body, metadata }
 ```
 
-## Payload shape
+## Promoter mode
+
+For Clawdbots that promote/post events, use promoter subscriptions:
+
+```json
+{
+  "feedId": "<uuid>",
+  "name": "Promoter",
+  "webhookUrl": "https://your-agent/webhook",
+  "outputFormat": "promoter",
+  "filters": { "includeKeywords": ["release", "security"], "minScore": 10 },
+  "deliveryMode": "immediate"
+}
+```
+
+Promoter payload: `{ type, title, summary, url, source, published_at, eventId, deliveredAt }`
+
+## Payload shape (default)
 
 - `id`, `feedId`, `event`, `deliveredAt`
 - `event`: `id`, `source`, `title`, `link`, `published`, `body`, `metadata`
@@ -45,4 +86,5 @@ const payload = JSON.parse(req.body.toString());
 
 - Docs and API: https://wake-net.vercel.app/docs
 - Clawdbot example (Express + Next.js): https://wake-net.vercel.app/docs/clawdbot-example
+- MCP server: https://github.com/andperez123/WakeNet/tree/main/mcp-server
 - Admin (feeds/subscriptions): https://wake-net.vercel.app/admin

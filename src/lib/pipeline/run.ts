@@ -79,7 +79,7 @@ export async function runFeedPoll(feedId: string): Promise<RunFeedPollResult> {
   const nowMs = now.getTime();
   const subLastDelivery = new Map<string, number>();
   for (const sub of subs) {
-    if (!sub.webhookUrl) continue;
+    if (!sub.webhookUrl && !sub.pullEnabled) continue;
     const filters = (sub.filters as SubscriptionFilters | null) ?? undefined;
     const minScore = filters?.minScore ?? 0;
     const outputFormat = sub.outputFormat ?? "default";
@@ -97,6 +97,18 @@ export async function runFeedPoll(feedId: string): Promise<RunFeedPollResult> {
 
       if (deliveryMode === "daily_digest") {
         await db.insert(digestQueue).values({ subscriptionId: sub.id, eventId });
+        deliveriesCreated++;
+        continue;
+      }
+
+      // Pull-only subscriptions: create delivery record as "sent" (available via pull endpoint)
+      if (!sub.webhookUrl && sub.pullEnabled) {
+        await db.insert(deliveries).values({
+          subscriptionId: sub.id,
+          eventId,
+          status: "sent",
+          retries: 0,
+        });
         deliveriesCreated++;
         continue;
       }
@@ -124,7 +136,7 @@ export async function runFeedPoll(feedId: string): Promise<RunFeedPollResult> {
               event: normalized,
               deliveredAt: new Date().toISOString(),
             } as WebhookPayload);
-      const { ok, status } = await deliverWebhook(sub.webhookUrl, payload, sub.secret);
+      const { ok, status } = await deliverWebhook(sub.webhookUrl!, payload, sub.secret);
       await db
         .update(deliveries)
         .set({
