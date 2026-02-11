@@ -6,14 +6,16 @@ An [MCP](https://modelcontextprotocol.io/) server that exposes WakeNet as callab
 
 | Tool | Description |
 |------|-------------|
+| `wakenet_health` | Check WakeNet and DB status |
+| `wakenet_smoketest` | Full smoke test: create test feed + pull sub, poll, pull; report pass/fail |
 | `wakenet_list_feeds` | List all feeds |
 | `wakenet_create_feed` | Create a new feed (RSS, GitHub Releases, HTTP JSON) |
 | `wakenet_list_subscriptions` | List all subscriptions |
 | `wakenet_create_subscription` | Create a subscription with webhook/pull config |
+| `wakenet_ensure_subscription` | Idempotent: find by name+feedId, create only if missing (avoids duplicates) |
 | `wakenet_list_events` | Browse recent events, filter by feed |
 | `wakenet_poll_feed` | Trigger an immediate poll |
 | `wakenet_pull_events` | Pull events for a pull-enabled subscription |
-| `wakenet_health` | Check WakeNet health + DB status |
 
 ## Setup
 
@@ -71,6 +73,8 @@ Set these env vars (or pass them in the MCP config):
 ```
 
 Replace `/ABSOLUTE/PATH/TO/WakeNet` with the actual path on your machine.
+
+**Pull-only agents:** See [examples/pull-loop.ts](../examples/pull-loop.ts) for a minimal loop that calls `/pull` every N minutes and dedupes by eventId.
 
 ### 4. Test
 

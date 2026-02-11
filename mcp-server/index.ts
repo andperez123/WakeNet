@@ -272,6 +272,141 @@ server.tool(
   }
 );
 
+// ----- Ensure subscription (idempotent) ------------------------------------
+
+server.tool(
+  "wakenet_ensure_subscription",
+  "Find a subscription by name and feedId; create it if missing. Avoids duplicate subscriptions when re-running setup.",
+  {
+    feedId: z.string().uuid().describe("ID of the feed"),
+    name: z.string().min(1).describe("Subscription name (used to find or create)"),
+    webhookUrl: z.string().url().optional().describe("Webhook URL (omit for pull-only)"),
+    pullEnabled: z.boolean().optional().describe("Enable pull (default true if no webhookUrl)"),
+    outputFormat: z.enum(["default", "promoter"]).optional(),
+    includeKeywords: z.array(z.string()).optional(),
+    minScore: z.number().int().min(0).optional(),
+  },
+  async (params) => {
+    const { data: list } = await wakenetFetch("/api/subscriptions");
+    const subs = Array.isArray(list) ? list : [];
+    const existing = (subs as { id?: string; feedId?: string; name?: string }[]).find(
+      (s) => s.feedId === params.feedId && s.name === params.name
+    );
+    if (existing) {
+      return textResult({ found: true, subscription: existing, message: "Subscription already exists." });
+    }
+    const body: Record<string, unknown> = {
+      feedId: params.feedId,
+      name: params.name,
+      pullEnabled: params.pullEnabled ?? !params.webhookUrl,
+    };
+    if (params.webhookUrl) body.webhookUrl = params.webhookUrl;
+    if (params.outputFormat) body.outputFormat = params.outputFormat;
+    const filters: Record<string, unknown> = {};
+    if (params.includeKeywords?.length) filters.includeKeywords = params.includeKeywords;
+    if (params.minScore != null) filters.minScore = params.minScore;
+    if (Object.keys(filters).length > 0) body.filters = filters;
+
+    const { data: created } = await wakenetFetch("/api/subscriptions", {
+      method: "POST",
+      body,
+    });
+    return textResult({ found: false, subscription: created, message: "Subscription created." });
+  }
+);
+
+// ----- Smoke test ----------------------------------------------------------
+
+server.tool(
+  "wakenet_smoketest",
+  "Run a full smoke test: create a test feed, pull subscription, poll, pull events. Reports success or failure with remediation. Does not delete the test feed/sub (you can remove in Admin).",
+  {},
+  async () => {
+    const steps: { step: string; ok: boolean; detail?: string }[] = [];
+    let feedId: string | null = null;
+    let subId: string | null = null;
+
+    const { ok: healthOk, data: healthData } = await wakenetFetch("/api/health");
+    steps.push({
+      step: "health",
+      ok: healthOk,
+      detail: healthOk ? "WakeNet and DB OK" : String((healthData as { error?: string })?.error ?? healthData),
+    });
+    if (!healthOk) {
+      return textResult({
+        ok: false,
+        steps,
+        remediation: "Check WAKENET_URL and that the WakeNet instance is up. If using API key, set WAKENET_API_KEY.",
+      });
+    }
+
+    const nameSuffix = Date.now();
+    const { ok: feedOk, data: feedData } = await wakenetFetch("/api/feeds", {
+      method: "POST",
+      body: {
+        type: "rss",
+        config: { url: "https://hnrss.org/frontpage" },
+        pollIntervalMinutes: 60,
+      },
+    });
+    const feed = feedOk && feedData && typeof feedData === "object" && "id" in feedData ? (feedData as { id: string }) : null;
+    feedId = feed?.id ?? null;
+    steps.push({
+      step: "create_feed",
+      ok: feedOk && !!feedId,
+      detail: feedOk ? `Feed ${feedId}` : String((feedData as { error?: string })?.error ?? feedData),
+    });
+    if (!feedId) {
+      return textResult({
+        ok: false,
+        steps,
+        remediation: "Create feed failed. If 401: set WAKENET_API_KEY. If 503: check WakeNet DB.",
+      });
+    }
+
+    const { ok: subOk, data: subData } = await wakenetFetch("/api/subscriptions", {
+      method: "POST",
+      body: { feedId, name: `SmokeTest-${nameSuffix}`, pullEnabled: true },
+    });
+    const sub = subOk && subData && typeof subData === "object" && "id" in subData ? (subData as { id: string }) : null;
+    subId = sub?.id ?? null;
+    steps.push({
+      step: "create_subscription",
+      ok: subOk && !!subId,
+      detail: subOk ? `Subscription ${subId}` : String((subData as { error?: string })?.error ?? subData),
+    });
+    if (!subId) {
+      return textResult({ ok: false, steps, remediation: "Create subscription failed. Check API key and feed ID." });
+    }
+
+    const { ok: pollOk, data: pollData } = await wakenetFetch(`/api/poll/${feedId}`, { method: "POST" });
+    steps.push({
+      step: "poll_feed",
+      ok: pollOk,
+      detail: pollOk ? String(JSON.stringify(pollData)) : String((pollData as { error?: string })?.error ?? pollData),
+    });
+
+    const { ok: pullOk, data: pullData } = await wakenetFetch(`/api/subscriptions/${subId}/pull`);
+    const items = Array.isArray(pullData) ? pullData : [];
+    steps.push({
+      step: "pull_events",
+      ok: pullOk,
+      detail: pullOk ? `Got ${items.length} event(s)` : String(pullData),
+    });
+
+    const allOk = steps.every((s) => s.ok);
+    return textResult({
+      ok: allOk,
+      steps,
+      testFeedId: feedId,
+      testSubscriptionId: subId,
+      remediation: allOk
+        ? undefined
+        : "Fix the first failing step. Common: 401 = add WAKENET_API_KEY; 503 = WakeNet DB down.",
+    });
+  }
+);
+
 // ----- Health check --------------------------------------------------------
 
 server.tool(
