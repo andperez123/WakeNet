@@ -21,6 +21,7 @@ export async function processRawEvents(
   feed: Feed,
   rawEvents: NormalizedEvent[]
 ): Promise<{ eventsNew: number; deliveriesCreated: number }> {
+  if (!db) throw new Error("Database not configured");
   const feedId = feed.id;
   let eventsNew = 0;
   const newEvents: { eventId: string; normalized: WebhookPayload["event"] }[] = [];

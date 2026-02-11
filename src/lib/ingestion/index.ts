@@ -47,7 +47,7 @@ export async function pollFeed(
       if (!("url" in config)) throw new Error("sitemap config requires url");
       return pollSitemap(
         config.url,
-        "mode" in config ? config.mode : undefined,
+        "mode" in config ? (config.mode as "index" | "urls") : undefined,
         "include" in config ? config.include : undefined,
         "exclude" in config ? config.exclude : undefined
       );
@@ -55,8 +55,8 @@ export async function pollFeed(
       if (!("url" in config)) throw new Error("html_change config requires url");
       return pollHtmlChange(
         config.url,
-        "marker" in config ? config.marker : "selector" in config ? config.selector : undefined,
-        "mode" in config ? config.mode : undefined
+        ("marker" in config ? config.marker : "selector" in config ? config.selector : undefined) as string | undefined,
+        "mode" in config ? (config.mode as "etag" | "hash" | "both") : undefined
       );
     default:
       throw new Error(`Unknown feed type: ${type}`);
