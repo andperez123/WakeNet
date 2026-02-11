@@ -92,7 +92,7 @@ Any MCP-aware agent (Claude, Cursor, OpenClaw) can use WakeNet directly:
       "command": "npx",
       "args": ["tsx", "/path/to/WakeNet/mcp-server/index.ts"],
       "env": {
-        "WAKENET_URL": "https://wake-net.vercel.app",
+        "WAKENET_BASE_URL": "https://wake-net.vercel.app",
         "WAKENET_API_KEY": "your-api-key"
       }
     }

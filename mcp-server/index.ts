@@ -7,7 +7,7 @@
  * browse events, and trigger polls — all without knowing curl commands.
  *
  * Environment variables:
- *   WAKENET_URL      — Base URL of your WakeNet instance (default: https://wake-net.vercel.app)
+ *   WAKENET_BASE_URL — Base URL of your WakeNet instance (default: https://wake-net.vercel.app)
  *   WAKENET_API_KEY  — Bearer token for authenticated endpoints (optional if WakeNet is open)
  */
 
@@ -15,7 +15,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const WAKENET_URL = (process.env.WAKENET_URL || "https://wake-net.vercel.app").replace(
+const WAKENET_BASE_URL = (process.env.WAKENET_BASE_URL || "https://wake-net.vercel.app").replace(
   /\/$/,
   ""
 );
@@ -36,7 +36,7 @@ async function wakenetFetch(
     headers["Authorization"] = `Bearer ${WAKENET_API_KEY}`;
   }
 
-  const res = await fetch(`${WAKENET_URL}${path}`, {
+  const res = await fetch(`${WAKENET_BASE_URL}${path}`, {
     method: options.method ?? "GET",
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
@@ -289,11 +289,19 @@ server.tool(
   async (params) => {
     const { data: list } = await wakenetFetch("/api/subscriptions");
     const subs = Array.isArray(list) ? list : [];
-    const existing = (subs as { id?: string; feedId?: string; name?: string }[]).find(
+    const matches = (subs as { id?: string; feedId?: string; name?: string; createdAt?: string }[]).filter(
       (s) => s.feedId === params.feedId && s.name === params.name
     );
-    if (existing) {
-      return textResult({ found: true, subscription: existing, message: "Subscription already exists." });
+    if (matches.length > 0) {
+      const newest = matches.sort(
+        (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+      )[0];
+      return textResult({
+        found: true,
+        subscription: newest,
+        message: "Subscription already exists (uniqueness: feedId + name).",
+        warning: matches.length > 1 ? `Multiple subscriptions matched; returned newest (${matches.length} total).` : undefined,
+      });
     }
     const body: Record<string, unknown> = {
       feedId: params.feedId,
@@ -336,7 +344,7 @@ server.tool(
       return textResult({
         ok: false,
         steps,
-        remediation: "Check WAKENET_URL and that the WakeNet instance is up. If using API key, set WAKENET_API_KEY.",
+        remediation: "Check WAKENET_BASE_URL and that the WakeNet instance is up. If using API key, set WAKENET_API_KEY.",
       });
     }
 
@@ -391,7 +399,7 @@ server.tool(
     steps.push({
       step: "pull_events",
       ok: pullOk,
-      detail: pullOk ? `Got ${items.length} event(s)` : String(pullData),
+      detail: pullOk ? `Got ${items.length} event(s) (empty array is OK)` : String(pullData),
     });
 
     const allOk = steps.every((s) => s.ok);
@@ -400,6 +408,7 @@ server.tool(
       steps,
       testFeedId: feedId,
       testSubscriptionId: subId,
+      warning: allOk && items.length === 0 ? "No events yet (first poll or empty feed is normal; not a failure)." : undefined,
       remediation: allOk
         ? undefined
         : "Fix the first failing step. Common: 401 = add WAKENET_API_KEY; 503 = WakeNet DB down.",
@@ -426,7 +435,7 @@ server.tool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error(`WakeNet MCP Server running on stdio (${WAKENET_URL})`);
+  console.error(`WakeNet MCP Server running on stdio (${WAKENET_BASE_URL})`);
 }
 
 main().catch((err) => {

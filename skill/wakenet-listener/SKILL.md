@@ -10,12 +10,14 @@ WakeNet delivers normalized, deduplicated events to a webhook or via pull so age
 
 ## Required environment (MCP / API)
 
+Canonical env (single source of truth):
+
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `WAKENET_URL` | No (default: https://wake-net.vercel.app) | Base URL of WakeNet instance |
+| `WAKENET_BASE_URL` | No (default: https://wake-net.vercel.app) | Base URL of WakeNet instance |
 | `WAKENET_API_KEY` | Yes if server enforces it | Bearer token for create feed/subscription, poll |
+| `WAKENET_SUBSCRIPTION_ID` | For pull mode | Pull-enabled subscription UUID; use with pull endpoint or `wakenet_pull_events` |
 | `WAKENET_SUBSCRIPTION_SECRET` | For webhook mode | Subscription secret (from create subscription); use for HMAC verification |
-| `SUBSCRIPTION_ID` | For pull mode | Subscription UUID; use with `GET /api/subscriptions/:id/pull` or `wakenet_pull_events` |
 
 **Health / smoke test:** Run `wakenet_health` then `wakenet_smoketest` to verify URL + API key + feed + subscription + poll + pull.
 
@@ -34,7 +36,7 @@ Wire the MCP server so the agent can call tools without manual API calls.
       "command": "npx",
       "args": ["tsx", "/path/to/WakeNet/mcp-server/index.ts"],
       "env": {
-        "WAKENET_URL": "https://wake-net.vercel.app",
+        "WAKENET_BASE_URL": "https://wake-net.vercel.app",
         "WAKENET_API_KEY": "your-api-key"
       }
     }
@@ -76,24 +78,27 @@ Wire the MCP server so the agent can call tools without manual API calls.
 
 ## Golden-path payloads (exact shapes)
 
+Must match deployed API. Subscription: `name` required; `pullEnabled` is **top-level**, not under config.
+
 **Create feed (RSS)**  
 `POST /api/feeds`  
-`{ "type": "rss", "config": { "url": "https://example.com/feed.xml" }, "pollIntervalMinutes": 15 }`
+`{ "type": "rss", "config": { "url": "https://example.com/feed.xml" } }`  
+Optional: `pollIntervalMinutes` (default 15).
 
 **Create feed (GitHub releases)**  
-`{ "type": "github_releases", "config": { "owner": "vercel", "repo": "next.js" }, "pollIntervalMinutes": 15 }`
+`{ "type": "github_releases", "config": { "owner": "vercel", "repo": "next.js" } }`
 
 **Create subscription (pull-only)**  
 `POST /api/subscriptions`  
 `{ "feedId": "<uuid>", "name": "My pull sub", "pullEnabled": true }`  
-No `webhookUrl`; `pullEnabled` is top-level.
+No `webhookUrl`. `pullEnabled` is top-level.
 
 **Create subscription (webhook)**  
-`{ "feedId": "<uuid>", "name": "My webhook sub", "webhookUrl": "https://your-agent.com/webhook" }`  
-Save the returned `secret`; use for `x-wakenet-signature` verification.
+`{ "feedId": "<uuid>", "name": "My webhook sub", "webhookUrl": "https://your-agent.com/webhook", "pullEnabled": false }`  
+Save the returned `secret` for `x-wakenet-signature` verification.
 
 **Promoter (webhook)**  
-`{ "feedId": "<uuid>", "name": "Promoter", "webhookUrl": "https://...", "outputFormat": "promoter", "filters": { "includeKeywords": ["release", "security"], "minScore": 10 }, "deliveryMode": "immediate" }`
+`{ "feedId": "<uuid>", "name": "Promoter", "webhookUrl": "https://...", "pullEnabled": false, "outputFormat": "promoter", "filters": { "includeKeywords": ["release", "security"], "minScore": 10 }, "deliveryMode": "immediate" }`
 
 ---
 
@@ -113,6 +118,35 @@ const payload = JSON.parse(req.body.toString());
 ```
 
 **Rotating secrets:** Create a new subscription (same feed), point your app at the new secret, then remove or disable the old subscription in Admin.
+
+**Cloudflare Workers (minimal)**  
+Read raw body, verify HMAC-SHA256, reject 401 on mismatch, parse JSON:
+
+```js
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+export default {
+  async fetch(req, env) {
+    if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
+    const rawBody = await req.text();
+    const sig = req.headers.get("x-wakenet-signature");
+    const secret = env.WAKENET_SUBSCRIPTION_SECRET;
+    if (!sig || !secret) return new Response("Unauthorized", { status: 401 });
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const buf = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+    const expected = Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    if (!timingSafeEqual(sig, expected)) return new Response("Invalid signature", { status: 401 });
+    const payload = JSON.parse(rawBody);
+    // handle payload.event
+    return new Response("OK", { status: 200 });
+  },
+};
+```
 
 ---
 

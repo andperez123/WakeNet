@@ -33,7 +33,7 @@ The review is right: the skill is currently a **guide**, not a full integration 
    One tool: create test feed → create pull subscription → poll → pull events → report OK/fail + remediation. Lets users and agents verify WakeNet + API key + MCP in one go.
 
 3. **Skill doc upgrades**  
-   - Required env: `WAKENET_URL`, `WAKENET_API_KEY`, and when to use `SUBSCRIPTION_ID` (pull).  
+   - Required env: `WAKENET_BASE_URL`, `WAKENET_API_KEY`, and when to use `WAKENET_SUBSCRIPTION_ID` (pull).  
    - Golden-path recipes: create feed, create subscription (pull vs webhook), poll, pull — with exact payload shapes (e.g. `config.url` for RSS, `pullEnabled` top-level).  
    - Health: point to `wakenet_health` and “run smoketest.”
 
@@ -65,3 +65,17 @@ The review is right: the skill is currently a **guide**, not a full integration 
 - **Reliability:** Idempotent subscription (ensure) + smoketest + pull-loop example + verifier snippets.  
 
 Implementing the in-repo items above gets you most of the way without blocking on ClawdHub or API changes.
+
+---
+
+**Quality gates:** See [SKILL_PACKAGING_CHECKLIST.md](SKILL_PACKAGING_CHECKLIST.md) before ClawdHub publish.
+
+---
+
+## What’s left (priority order)
+
+1. **Env var + payload consistency** (blocking) — Canonical env `WAKENET_BASE_URL`, `WAKENET_API_KEY`, `WAKENET_SUBSCRIPTION_ID`, `WAKENET_SUBSCRIPTION_SECRET`; subscription shape `pullEnabled` top-level, `name` required; no mixed WAKENET_URL/WAKENET_BASE_URL.
+2. **Smoketest robust** (blocking for confidence) — Pass = health + create feed + create sub + poll OK + pull returns valid JSON (even `[]`); “no events yet” = warning only.
+3. **ClawdHub one-command install** (distribution) — Package for registry so `npx clawdhub install wakenet-listener` works.
+4. **Workers snippet** (nice-to-have) — Minimal Cloudflare Workers webhook verifier (raw body, HMAC, 401 on mismatch, parse JSON).
+5. **API PATCH / idempotency** (optional) — Agent-side `wakenet_ensure_subscription` already covers most; server-side idempotency key or PATCH if desired.

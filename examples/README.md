@@ -9,7 +9,7 @@ Minimal reference for **pull-only** agents: poll WakeNet every N minutes, dedupe
 1. Create a pull-enabled subscription (Admin or MCP `wakenet_create_subscription` with `pullEnabled: true`).
 2. Set env:
    - `WAKENET_SUBSCRIPTION_ID` — subscription UUID
-   - `WAKENET_URL` — optional (default: https://wake-net.vercel.app)
+   - `WAKENET_BASE_URL` — optional (default: https://wake-net.vercel.app)
    - `PULL_INTERVAL_MINUTES` — optional (default: 5)
 
 **Run**

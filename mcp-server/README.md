@@ -33,8 +33,8 @@ Set these env vars (or pass them in the MCP config):
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `WAKENET_URL` | No | `https://wake-net.vercel.app` | Base URL of your WakeNet instance |
-| `WAKENET_API_KEY` | No | — | Bearer token (if `WAKENET_API_KEY` is set on the server) |
+| `WAKENET_BASE_URL` | No | `https://wake-net.vercel.app` | Base URL of your WakeNet instance |
+| `WAKENET_API_KEY` | No | — | Bearer token (if the WakeNet server enforces API key) |
 
 ### 3. Add to your MCP client
 
@@ -47,7 +47,7 @@ Set these env vars (or pass them in the MCP config):
       "command": "npx",
       "args": ["tsx", "/ABSOLUTE/PATH/TO/WakeNet/mcp-server/index.ts"],
       "env": {
-        "WAKENET_URL": "https://wake-net.vercel.app",
+        "WAKENET_BASE_URL": "https://wake-net.vercel.app",
         "WAKENET_API_KEY": "your-api-key"
       }
     }
@@ -64,7 +64,7 @@ Set these env vars (or pass them in the MCP config):
       "command": "npx",
       "args": ["tsx", "/ABSOLUTE/PATH/TO/WakeNet/mcp-server/index.ts"],
       "env": {
-        "WAKENET_URL": "https://wake-net.vercel.app",
+        "WAKENET_BASE_URL": "https://wake-net.vercel.app",
         "WAKENET_API_KEY": "your-api-key"
       }
     }
@@ -103,7 +103,7 @@ Agent: I'll set up a WakeNet feed for Vercel's Next.js releases.
 ## Running standalone (for testing)
 
 ```bash
-WAKENET_URL=https://wake-net.vercel.app npx tsx mcp-server/index.ts
+WAKENET_BASE_URL=https://wake-net.vercel.app npx tsx mcp-server/index.ts
 ```
 
 The server communicates via stdio (JSON-RPC). It will wait for MCP messages on stdin.

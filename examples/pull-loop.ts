@@ -6,14 +6,14 @@
  * Runs every N minutes, calls /pull, dedupes by eventId, and invokes a handler.
  *
  * Env:
- *   WAKENET_URL          — Base URL (default: https://wake-net.vercel.app)
+ *   WAKENET_BASE_URL     — Base URL (default: https://wake-net.vercel.app)
  *   WAKENET_SUBSCRIPTION_ID — Pull-enabled subscription UUID
  *   PULL_INTERVAL_MINUTES — Minutes between pulls (default: 5)
  *
  * Run: npx tsx examples/pull-loop.ts
  */
 
-const WAKENET_URL = (process.env.WAKENET_URL || "https://wake-net.vercel.app").replace(
+const WAKENET_BASE_URL = (process.env.WAKENET_BASE_URL || "https://wake-net.vercel.app").replace(
   /\/$/,
   ""
 );
@@ -27,7 +27,7 @@ async function pull(): Promise<void> {
     console.error("WAKENET_SUBSCRIPTION_ID is not set");
     return;
   }
-  const res = await fetch(`${WAKENET_URL}/api/subscriptions/${SUB_ID}/pull`);
+  const res = await fetch(`${WAKENET_BASE_URL}/api/subscriptions/${SUB_ID}/pull`);
   if (!res.ok) {
     console.error("Pull failed:", res.status, await res.text());
     return;

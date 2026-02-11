@@ -58,7 +58,7 @@ For deeper agent integration, configure the WakeNet MCP server:
       "command": "npx",
       "args": ["tsx", "/path/to/WakeNet/mcp-server/index.ts"],
       "env": {
-        "WAKENET_URL": "https://wake-net.vercel.app",
+        "WAKENET_BASE_URL": "https://wake-net.vercel.app",
         "WAKENET_API_KEY": "your-api-key"
       }
     }
