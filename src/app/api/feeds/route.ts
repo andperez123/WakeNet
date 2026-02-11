@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { feeds } from "@/lib/db/schema";
 import { feedTypeSchema, feedConfigSchema } from "@/lib/types";
@@ -25,6 +26,21 @@ export async function POST(req: Request) {
   const parsed = createBodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+  // webhook_inbox: enforce unique token/secret so ingest route resolves to a single feed
+  if (parsed.data.type === "webhook_inbox") {
+    const cfg = parsed.data.config as { token?: string; secret?: string };
+    const token = cfg.token ?? cfg.secret;
+    if (token) {
+      const existing = await db.select().from(feeds).where(eq(feeds.type, "webhook_inbox"));
+      const conflict = existing.some((f) => {
+        const c = f.config as { token?: string; secret?: string };
+        return c.token === token || c.secret === token;
+      });
+      if (conflict) {
+        return NextResponse.json({ error: "A webhook_inbox feed with this token or secret already exists" }, { status: 409 });
+      }
+    }
   }
   const [feed] = await db
     .insert(feeds)

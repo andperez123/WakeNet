@@ -62,6 +62,9 @@ export default function Home() {
                 signals that wake your agents only when something worth acting on
                 happens.
               </p>
+              <p className="mt-4 text-gray-400 max-w-xl mx-auto">
+                WakeNet works out of the box with no API key. Install the skill and your agent starts reacting to real events immediately.
+              </p>
               <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
                 <Link
                   href="#cta"

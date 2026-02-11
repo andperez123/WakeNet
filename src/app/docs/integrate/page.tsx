@@ -7,11 +7,29 @@ export default function IntegratePage() {
         Integrate your agent with WakeNet
       </h1>
       <p className="mt-2 text-gray-400">
-        WakeNet lets agents wake only when something changes. Instead of polling feeds, rebuilding context, and burning tokens, your agent subscribes to external signals (RSS, GitHub, HTTP) and reacts only to new events.
+        WakeNet works out of the box with no API key. Authentication is optional and only required if the server enforces it.
       </p>
       <p className="mt-2 text-gray-400">
-        This guide connects Clawdbot (or any MCP-capable agent) to WakeNet using feeds, subscriptions, and event delivery via pull or webhook.
+        WakeNet lets agents wake only when something changes. Instead of polling feeds, rebuilding context, and burning tokens, your agent subscribes to external signals (RSS, GitHub, HTTP) and reacts only to new events.
       </p>
+      <p className="mt-2 text-gray-400 font-medium text-gray-300">
+        Install the skill and your agent starts reacting to real events immediately.
+      </p>
+
+      {/* Quick Start — one-command path, no keys */}
+      <section className="mt-10 rounded-xl border border-wakenet-accent/40 bg-wakenet-surface/30 p-6">
+        <h2 className="font-display text-xl font-semibold text-white border-b border-wakenet-border pb-2">
+          Quick Start (no UI, no keys, no config)
+        </h2>
+        <p className="mt-4 text-gray-400">Run these two commands. The smoke test creates a demo RSS feed, a pull subscription, polls once, and prints events.</p>
+        <pre className="mt-4 rounded-lg border border-wakenet-border bg-wakenet-surface/50 p-4 text-sm text-gray-300 font-mono">
+          clawhub install wakenet-listener
+        </pre>
+        <pre className="mt-2 rounded-lg border border-wakenet-border bg-wakenet-surface/50 p-4 text-sm text-gray-300 font-mono">
+          clawdbot run wakenet_smoketest
+        </pre>
+        <p className="mt-2 text-gray-500 text-sm">If both succeed, you’re receiving events. Then add the MCP server (step 3) and persist the <code className="rounded bg-wakenet-border px-1">subscriptionId</code> from WakeNet for pull mode.</p>
+      </section>
 
       {/* Why agents use WakeNet */}
       <section className="mt-10">
@@ -49,7 +67,6 @@ export default function IntegratePage() {
         <ul className="mt-4 list-disc list-inside text-gray-400 space-y-1">
           <li>Clawdbot or OpenClaw installed (e.g. skills dir <code className="rounded bg-wakenet-border px-1">~/clawd/Skills</code>).</li>
           <li>WakeNet repo on your machine (for MCP server and examples).</li>
-          <li>WakeNet API key if your server enforces one.</li>
         </ul>
       </section>
 
@@ -69,11 +86,12 @@ export default function IntegratePage() {
         <p className="mt-2 text-gray-500 text-sm">Restart your agent, then run <code className="rounded bg-wakenet-border px-1">clawdbot skills list</code> — you should see <strong>wakenet-listener</strong>.</p>
       </section>
 
-      {/* Step 2 */}
+      {/* Step 2 — env: subscription first, no API key here */}
       <section className="mt-10">
         <h2 className="font-display text-xl font-semibold text-white border-b border-wakenet-border pb-2">
-          2. Set environment variables
+          2. Environment variables (from WakeNet, not invented)
         </h2>
+        <p className="mt-4 text-gray-400">You never invent env vars. Persist the <code className="rounded bg-wakenet-border px-1">subscriptionId</code> (and <code className="rounded bg-wakenet-border px-1">webhookSecret</code> if webhook) returned by WakeNet when you create or ensure a subscription.</p>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm text-gray-400 border border-wakenet-border rounded-lg">
             <thead>
@@ -84,9 +102,8 @@ export default function IntegratePage() {
             </thead>
             <tbody>
               <tr className="border-b border-wakenet-border/60"><td className="py-2 px-3 font-mono">WAKENET_BASE_URL</td><td className="py-2 px-3">Optional (default: https://wake-net.vercel.app)</td></tr>
-              <tr className="border-b border-wakenet-border/60"><td className="py-2 px-3 font-mono">WAKENET_API_KEY</td><td className="py-2 px-3">Required if API key is enforced</td></tr>
-              <tr className="border-b border-wakenet-border/60"><td className="py-2 px-3 font-mono">WAKENET_SUBSCRIPTION_ID</td><td className="py-2 px-3">Pull mode only</td></tr>
-              <tr className="border-b border-wakenet-border/60"><td className="py-2 px-3 font-mono">WAKENET_SUBSCRIPTION_SECRET</td><td className="py-2 px-3">Webhook mode only (shown once)</td></tr>
+              <tr className="border-b border-wakenet-border/60"><td className="py-2 px-3 font-mono">WAKENET_SUBSCRIPTION_ID</td><td className="py-2 px-3">Pull mode — use <code className="rounded bg-wakenet-border px-1">subscriptionId</code> from WakeNet response</td></tr>
+              <tr className="border-b border-wakenet-border/60"><td className="py-2 px-3 font-mono">WAKENET_SUBSCRIPTION_SECRET</td><td className="py-2 px-3">Webhook only — use <code className="rounded bg-wakenet-border px-1">webhookSecret</code> from WakeNet (shown once)</td></tr>
             </tbody>
           </table>
         </div>
@@ -98,7 +115,7 @@ export default function IntegratePage() {
         <h2 className="font-display text-xl font-semibold text-white border-b border-wakenet-border pb-2">
           3. Add the WakeNet MCP server
         </h2>
-        <p className="mt-4 text-gray-400">In your MCP config (e.g. <code className="rounded bg-wakenet-border px-1">~/clawd/mcp.json</code>):</p>
+        <p className="mt-4 text-gray-400">In your MCP config (e.g. <code className="rounded bg-wakenet-border px-1">~/clawd/mcp.json</code>). Only add <code className="rounded bg-wakenet-border px-1">WAKENET_API_KEY</code> if your server enforces it:</p>
         <pre className="mt-2 rounded-lg border border-wakenet-border bg-wakenet-surface/50 p-4 text-sm text-gray-300 font-mono whitespace-pre-wrap">
 {`{
   "mcpServers": {
@@ -106,8 +123,7 @@ export default function IntegratePage() {
       "command": "npx",
       "args": ["tsx", "/ABSOLUTE/PATH/TO/WakeNet/mcp-server/index.ts"],
       "env": {
-        "WAKENET_BASE_URL": "https://wake-net.vercel.app",
-        "WAKENET_API_KEY": "YOUR_API_KEY"
+        "WAKENET_BASE_URL": "https://wake-net.vercel.app"
       }
     }
   }
@@ -122,30 +138,31 @@ export default function IntegratePage() {
         <h2 className="font-display text-xl font-semibold text-white border-b border-wakenet-border pb-2">
           4. Create a feed and subscription
         </h2>
-        <p className="mt-4 text-gray-400"><strong className="text-gray-300">Option A — Admin UI:</strong> Go to <a href="https://wake-net.vercel.app/admin" className="text-wakenet-accent hover:underline">wake-net.vercel.app/admin</a>. Create a feed, then a subscription (webhook or pull-only). Save the <strong>secret</strong> (webhook) or <strong>subscription ID</strong> (pull).</p>
-        <p className="mt-4 text-gray-400"><strong className="text-gray-300">Option B — MCP (recommended):</strong> Run <code className="rounded bg-wakenet-border px-1">wakenet_smoketest</code>, then <code className="rounded bg-wakenet-border px-1">wakenet_create_feed</code> and <code className="rounded bg-wakenet-border px-1">wakenet_ensure_subscription</code>. This avoids duplicates and returns existing subscriptions when re-run.</p>
+        <p className="mt-4 text-gray-400"><strong className="text-gray-300">Option A — Admin UI:</strong> <a href="https://wake-net.vercel.app/admin" className="text-wakenet-accent hover:underline">wake-net.vercel.app/admin</a>. Create a feed, then a subscription (webhook or pull-only). Persist the <strong>subscriptionId</strong> (and <strong>webhookSecret</strong> if webhook) from the response.</p>
+        <p className="mt-4 text-gray-400"><strong className="text-gray-300">Option B — MCP (recommended):</strong> Run <code className="rounded bg-wakenet-border px-1">wakenet_smoketest</code>, then <code className="rounded bg-wakenet-border px-1">wakenet_create_feed</code> and <code className="rounded bg-wakenet-border px-1">wakenet_ensure_subscription</code>. The response includes <code className="rounded bg-wakenet-border px-1">subscriptionId</code>, <code className="rounded bg-wakenet-border px-1">mode</code> (pull/webhook), and <code className="rounded bg-wakenet-border px-1">webhookSecret</code> when applicable. Persist those; no manual env values required.</p>
       </section>
 
-      {/* Step 5 */}
+      {/* Step 5 — pull default, webhook optional */}
       <section className="mt-10">
         <h2 className="font-display text-xl font-semibold text-white border-b border-wakenet-border pb-2">
-          5. Receive events (choose one)
+          5. Receive events
         </h2>
+        <p className="mt-4 text-gray-400 font-medium text-gray-300">Webhooks are optional. Pull mode is recommended for first-time agents.</p>
         <div className="mt-4 space-y-4 text-gray-400">
           <div>
-            <h3 className="text-sm font-medium text-gray-300">Webhook mode</h3>
-            <p className="mt-1">Expose a POST endpoint. Verify <code className="rounded bg-wakenet-border px-1">x-wakenet-signature</code>: raw body → HMAC-SHA256, compare with <code className="rounded bg-wakenet-border px-1">WAKENET_SUBSCRIPTION_SECRET</code>. Parse JSON and act. See the <Link href="/docs/clawdbot-example" className="text-wakenet-accent hover:underline">Clawdbot example</Link> for a working verifier.</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-300">Pull mode (consume-once)</h3>
-            <p className="mt-1">Set <code className="rounded bg-wakenet-border px-1">WAKENET_SUBSCRIPTION_ID</code> and call <code className="rounded bg-wakenet-border px-1">wakenet_pull_events</code>. WakeNet returns:</p>
+            <h3 className="text-sm font-medium text-gray-300">Pull mode (recommended, consume-once)</h3>
+            <p className="mt-1">Persist the <code className="rounded bg-wakenet-border px-1">subscriptionId</code> returned by WakeNet as <code className="rounded bg-wakenet-border px-1">WAKENET_SUBSCRIPTION_ID</code>. Call <code className="rounded bg-wakenet-border px-1">wakenet_pull_events</code>. WakeNet returns:</p>
             <pre className="mt-2 rounded-lg border border-wakenet-border bg-wakenet-surface/50 p-4 text-sm text-gray-300 font-mono whitespace-pre-wrap">
 {`{
   "items": [...],
   "nextCursor": "2026-02-11T00:13:32.048Z"
 }`}
             </pre>
-            <p className="mt-2">Send <code className="rounded bg-wakenet-border px-1">?after=nextCursor</code> on the next call to receive only new events. Clean, deterministic consume-once behavior with no deduping logic.</p>
+            <p className="mt-2">Send <code className="rounded bg-wakenet-border px-1">?after=nextCursor</code> on the next call to receive only new events. No public endpoint, no signature verification, deterministic consume-once.</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-300">Webhook mode (optional)</h3>
+            <p className="mt-1">Expose a POST endpoint. Verify <code className="rounded bg-wakenet-border px-1">x-wakenet-signature</code>: raw body → HMAC-SHA256, compare with <code className="rounded bg-wakenet-border px-1">WAKENET_SUBSCRIPTION_SECRET</code>. Parse JSON and act. See the <Link href="/docs/clawdbot-example" className="text-wakenet-accent hover:underline">Clawdbot example</Link> for a working verifier.</p>
           </div>
         </div>
       </section>
@@ -162,6 +179,15 @@ export default function IntegratePage() {
         </ul>
       </section>
 
+      {/* Optional: Lock down (API key) — advanced */}
+      <section className="mt-10">
+        <h2 className="font-display text-xl font-semibold text-white border-b border-wakenet-border pb-2">
+          Optional: Lock down your WakeNet server (production / billing)
+        </h2>
+        <p className="mt-4 text-gray-400">By default WakeNet runs in open mode: GET endpoints and feed polling are open; only mutations (create feed/subscription, poll trigger) can be protected. If you want to require an API key for those, set <code className="rounded bg-wakenet-border px-1">WAKENET_API_KEY</code> in your server environment. Then clients must send <code className="rounded bg-wakenet-border px-1">Authorization: Bearer &lt;key&gt;</code>. Use this for abuse prevention, billing, or multi-tenant isolation — not for onboarding.</p>
+        <p className="mt-2 text-gray-500 text-sm">If a request fails with 401, the error message will say: &quot;This server requires an API key.&quot;</p>
+      </section>
+
       {/* Why RSS + event triggers matter */}
       <section className="mt-10">
         <h2 className="font-display text-xl font-semibold text-white border-b border-wakenet-border pb-2">
@@ -175,10 +201,10 @@ export default function IntegratePage() {
       <section className="mt-10 rounded-xl border border-wakenet-border bg-wakenet-surface/30 p-6">
         <h2 className="font-display text-lg font-semibold text-white">Quick reference</h2>
         <ul className="mt-2 text-sm text-gray-400 space-y-1">
-          <li><strong className="text-gray-300">Install:</strong> <code className="rounded bg-wakenet-border px-1">clawhub install wakenet-listener</code> or copy <code className="rounded bg-wakenet-border px-1">skill/wakenet-listener</code>.</li>
-          <li><strong className="text-gray-300">Env:</strong> WAKENET_BASE_URL, WAKENET_API_KEY, WAKENET_SUBSCRIPTION_ID (pull), WAKENET_SUBSCRIPTION_SECRET (webhook).</li>
-          <li><strong className="text-gray-300">Create:</strong> Feed = type + config.url. Subscription = feedId, name, pullEnabled (top-level).</li>
-          <li><strong className="text-gray-300">Receive:</strong> Webhook (signature verify) or pull (<code className="rounded bg-wakenet-border px-1">wakenet_pull_events</code>, cursor-based).</li>
+          <li><strong className="text-gray-300">Quick Start:</strong> <code className="rounded bg-wakenet-border px-1">clawhub install wakenet-listener</code> then <code className="rounded bg-wakenet-border px-1">clawdbot run wakenet_smoketest</code>.</li>
+          <li><strong className="text-gray-300">Env:</strong> Persist <code className="rounded bg-wakenet-border px-1">subscriptionId</code> / <code className="rounded bg-wakenet-border px-1">webhookSecret</code> from WakeNet. Optional: <code className="rounded bg-wakenet-border px-1">WAKENET_API_KEY</code> only if server enforces it.</li>
+          <li><strong className="text-gray-300">Create:</strong> Feed = type + config.url. Subscription = feedId, name, pullEnabled (top-level). Response includes subscriptionId, mode, webhookSecret.</li>
+          <li><strong className="text-gray-300">Receive:</strong> Pull (default, <code className="rounded bg-wakenet-border px-1">wakenet_pull_events</code>, cursor-based) or webhook (signature verify).</li>
         </ul>
       </section>
 

@@ -9,34 +9,36 @@ import {
   type WebhookPayload,
 } from "../delivery";
 import type { FeedType, FeedConfig, SubscriptionFilters } from "../types";
+import type { NormalizedEvent } from "../types";
+import type { Feed } from "../db/schema";
 
 export type RunFeedPollResult =
   | { eventsFound: number; eventsNew: number; deliveriesCreated: number }
   | { error: string };
 
-export async function runFeedPoll(feedId: string): Promise<RunFeedPollResult> {
-  if (!db) return { error: "Database not configured" };
-  const [feed] = await db
-    .select()
-    .from(feeds)
-    .where(and(eq(feeds.id, feedId), eq(feeds.enabled, true)));
-  if (!feed) return { error: "Feed not found or disabled" };
-
-  const config = feed.config as FeedConfig;
-  const type = feed.type as FeedType;
-  const rawEvents = await pollFeed(type, config);
-
-  const now = new Date();
+/** Process raw events into DB and create deliveries. Used by poll and webhook ingest. */
+export async function processRawEvents(
+  feed: Feed,
+  rawEvents: NormalizedEvent[]
+): Promise<{ eventsNew: number; deliveriesCreated: number }> {
+  const feedId = feed.id;
   let eventsNew = 0;
   const newEvents: { eventId: string; normalized: WebhookPayload["event"] }[] = [];
 
   for (const raw of rawEvents) {
+    // Idempotency: same event id for this feed => skip (avoids duplicate deliveries when producer retries)
+    const [existingByExternalId] = await db
+      .select()
+      .from(events)
+      .where(and(eq(events.feedId, feedId), eq(events.externalId, raw.id)));
+    if (existingByExternalId) continue;
+
     const hash = contentHash(raw);
-    const [existing] = await db
+    const [existingByHash] = await db
       .select()
       .from(events)
       .where(and(eq(events.feedId, feedId), eq(events.contentHash, hash)));
-    if (existing) continue;
+    if (existingByHash) continue;
 
     const [inserted] = await db
       .insert(events)
@@ -65,16 +67,12 @@ export async function runFeedPoll(feedId: string): Promise<RunFeedPollResult> {
     }
   }
 
-  await db
-    .update(feeds)
-    .set({ lastPolledAt: now, updatedAt: now })
-    .where(eq(feeds.id, feedId));
-
   const subs = await db
     .select()
     .from(subscriptions)
     .where(and(eq(subscriptions.feedId, feedId), eq(subscriptions.enabled, true)));
 
+  const now = new Date();
   let deliveriesCreated = 0;
   const nowMs = now.getTime();
   const subLastDelivery = new Map<string, number>();
@@ -155,6 +153,29 @@ export async function runFeedPoll(feedId: string): Promise<RunFeedPollResult> {
     }
   }
 
+  return { eventsNew, deliveriesCreated };
+}
+
+export async function runFeedPoll(feedId: string): Promise<RunFeedPollResult> {
+  if (!db) return { error: "Database not configured" };
+  const [feed] = await db
+    .select()
+    .from(feeds)
+    .where(and(eq(feeds.id, feedId), eq(feeds.enabled, true)));
+  if (!feed) return { error: "Feed not found or disabled" };
+
+  const config = feed.config as FeedConfig;
+  const type = feed.type as FeedType;
+  const rawEvents = await pollFeed(type, config);
+
+  const { eventsNew, deliveriesCreated } = await processRawEvents(feed, rawEvents);
+
+  const now = new Date();
+  await db
+    .update(feeds)
+    .set({ lastPolledAt: now, updatedAt: now })
+    .where(eq(feeds.id, feedId));
+
   return {
     eventsFound: rawEvents.length,
     eventsNew,
@@ -162,14 +183,17 @@ export async function runFeedPoll(feedId: string): Promise<RunFeedPollResult> {
   };
 }
 
+const POLLABLE_TYPES = ["rss", "github_releases", "http_json", "github_commits", "github_pull_requests", "sitemap", "html_change"];
+
 export async function getFeedsDueForPoll(): Promise<string[]> {
   if (!db) return [];
   const all = await db
-    .select({ id: feeds.id, lastPolledAt: feeds.lastPolledAt, pollIntervalMinutes: feeds.pollIntervalMinutes })
+    .select({ id: feeds.id, type: feeds.type, lastPolledAt: feeds.lastPolledAt, pollIntervalMinutes: feeds.pollIntervalMinutes })
     .from(feeds)
     .where(eq(feeds.enabled, true));
   const now = Date.now();
   const due = all.filter((f) => {
+    if (!POLLABLE_TYPES.includes(f.type)) return false; // e.g. webhook_inbox has no polling
     const intervalMs = (f.pollIntervalMinutes ?? 15) * 60 * 1000;
     const last = f.lastPolledAt ? new Date(f.lastPolledAt).getTime() : 0;
     return now - last >= intervalMs;

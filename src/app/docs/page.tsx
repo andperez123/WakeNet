@@ -7,10 +7,13 @@ export default function DocsPage() {
       <p className="mt-2 text-gray-400">
         Get WakeNet running and deliver events to your agents.
       </p>
+      <p className="mt-2 text-gray-400">
+        WakeNet works out of the box with no API key. For a one-command agent path (install skill + smoke test, no UI, no keys), see <Link href="/docs/integrate" className="text-wakenet-accent hover:underline">Integrate</Link>. For all feed types (GitHub commits, PRs, webhook inbox, sitemap, HTML change) with copy-paste examples, see <Link href="/docs/feed-types" className="text-wakenet-accent hover:underline">Feed types</Link>.
+      </p>
 
       <section id="quick-start" className="mt-10">
         <h2 className="font-display text-xl font-semibold text-white border-b border-wakenet-border pb-2">
-          Quick start
+          Quick start (API)
         </h2>
         <ol className="mt-4 list-decimal list-inside space-y-2 text-gray-300">
           <li>

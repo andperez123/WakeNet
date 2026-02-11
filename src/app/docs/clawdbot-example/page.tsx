@@ -9,6 +9,9 @@ export default function ClawdbotExamplePage() {
       <p className="mt-2 text-gray-400">
         Use this in your Clawdbot (or any agent) to receive WakeNet events and verify they’re authentic.
       </p>
+      <p className="mt-2 text-gray-500 text-sm">
+        For zero-config pull mode (no webhook, no env vars in open mode), use the <Link href="/docs/integrate" className="text-wakenet-accent hover:underline">Integrate Quick Start</Link>: <code className="rounded bg-wakenet-border px-1">clawhub install wakenet-listener</code> then <code className="rounded bg-wakenet-border px-1">clawdbot run wakenet_smoketest</code>.
+      </p>
 
       <section className="mt-8">
         <h2 className="font-display text-xl font-semibold text-white border-b border-wakenet-border pb-2">

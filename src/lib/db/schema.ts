@@ -11,7 +11,7 @@ import {
 
 export const feeds = pgTable("feeds", {
   id: uuid("id").primaryKey().defaultRandom(),
-  type: text("type").notNull(), // 'rss' | 'github_releases' | 'http_json'
+  type: text("type").notNull(), // rss | github_releases | http_json | github_commits | github_pull_requests | webhook_inbox | sitemap | html_change
   config: jsonb("config").notNull(), // { url?, repo?, path? }
   pollIntervalMinutes: integer("poll_interval_minutes").notNull().default(15),
   lastPolledAt: timestamp("last_polled_at", { withTimezone: true }),

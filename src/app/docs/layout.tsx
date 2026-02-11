@@ -22,6 +22,9 @@ export default function DocsLayout({
             <Link href="/docs/integrate" className="text-sm text-gray-400 hover:text-white transition">
               Integrate
             </Link>
+            <Link href="/docs/feed-types" className="text-sm text-gray-400 hover:text-white transition">
+              Feed types
+            </Link>
             <Link href="/docs/clawdbot-example" className="text-sm text-gray-400 hover:text-white transition">
               Clawdbot Example
             </Link>

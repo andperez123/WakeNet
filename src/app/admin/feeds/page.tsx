@@ -23,6 +23,17 @@ export default function AdminFeedsPage() {
     owner: "",
     repo: "",
     path: "",
+    token: "",
+    branch: "",
+    pathPrefix: "",
+    state: "open" as "open" | "closed" | "all",
+    labels: "",
+    base: "",
+    sitemapMode: "index" as "index" | "urls",
+    include: "",
+    exclude: "",
+    marker: "",
+    htmlMode: "both" as "etag" | "hash" | "both",
     pollIntervalMinutes: 15,
   });
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +77,51 @@ export default function AdminFeedsPage() {
       }
       config = { url: form.url.trim() };
       if (form.path.trim()) config.path = form.path.trim();
+    } else if (form.type === "webhook_inbox") {
+      if (!form.token.trim()) {
+        setError("Token is required");
+        setCreating(false);
+        return;
+      }
+      config = { token: form.token.trim() };
+    } else if (form.type === "github_commits") {
+      if (!form.owner.trim() || !form.repo.trim()) {
+        setError("Owner and repo are required");
+        setCreating(false);
+        return;
+      }
+      config = { owner: form.owner.trim(), repo: form.repo.trim() };
+      if (form.branch.trim()) config.branch = form.branch.trim();
+      if (form.pathPrefix.trim()) config.pathPrefix = form.pathPrefix.trim();
+    } else if (form.type === "github_pull_requests") {
+      if (!form.owner.trim() || !form.repo.trim()) {
+        setError("Owner and repo are required");
+        setCreating(false);
+        return;
+      }
+      config = { owner: form.owner.trim(), repo: form.repo.trim() };
+      if (form.state) config.state = form.state;
+      if (form.labels.trim()) config.labels = form.labels.split(",").map((s) => s.trim()).filter(Boolean);
+      if (form.base.trim()) config.base = form.base.trim();
+    } else if (form.type === "sitemap") {
+      if (!form.url.trim()) {
+        setError("Sitemap URL is required");
+        setCreating(false);
+        return;
+      }
+      config = { url: form.url.trim() };
+      if (form.sitemapMode) config.mode = form.sitemapMode;
+      if (form.include.trim()) config.include = form.include.split(",").map((s) => s.trim()).filter(Boolean);
+      if (form.exclude.trim()) config.exclude = form.exclude.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (form.type === "html_change") {
+      if (!form.url.trim()) {
+        setError("URL is required");
+        setCreating(false);
+        return;
+      }
+      config = { url: form.url.trim() };
+      if (form.marker.trim()) config.marker = form.marker.trim();
+      if (form.htmlMode) config.mode = form.htmlMode;
     }
     try {
       const res = await fetch(`${base}/api/feeds`, {
@@ -80,7 +136,25 @@ export default function AdminFeedsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create feed");
       setFeeds((prev) => [data, ...prev]);
-      setForm({ type: "rss", url: "", owner: "", repo: "", path: "", pollIntervalMinutes: 15 });
+      setForm({
+        type: "rss",
+        url: "",
+        owner: "",
+        repo: "",
+        path: "",
+        token: "",
+        branch: "",
+        pathPrefix: "",
+        state: "open",
+        labels: "",
+        base: "",
+        sitemapMode: "index",
+        include: "",
+        exclude: "",
+        marker: "",
+        htmlMode: "both",
+        pollIntervalMinutes: 15,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create feed");
     } finally {
@@ -116,6 +190,11 @@ export default function AdminFeedsPage() {
               <option value="rss">RSS / Atom</option>
               <option value="github_releases">GitHub Releases</option>
               <option value="http_json">HTTP JSON</option>
+              <option value="webhook_inbox">Webhook Inbox</option>
+              <option value="github_commits">GitHub Commits</option>
+              <option value="github_pull_requests">GitHub Pull Requests</option>
+              <option value="sitemap">Sitemap</option>
+              <option value="html_change">HTML Change</option>
             </select>
           </div>
           {form.type === "rss" && (
@@ -178,6 +257,199 @@ export default function AdminFeedsPage() {
               </div>
             </>
           )}
+          {form.type === "webhook_inbox" && (
+            <div>
+              <label className="block text-sm text-gray-400">Ingest token (used in POST /api/ingest/webhook/:token)</label>
+              <input
+                type="text"
+                value={form.token}
+                onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))}
+                placeholder="my-secret-token"
+                className="mt-1 w-full max-w-md rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+              />
+            </div>
+          )}
+          {form.type === "github_commits" && (
+            <>
+              <div>
+                <label className="block text-sm text-gray-400">Owner</label>
+                <input
+                  type="text"
+                  value={form.owner}
+                  onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))}
+                  placeholder="vercel"
+                  className="mt-1 w-full max-w-xs rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Repo</label>
+                <input
+                  type="text"
+                  value={form.repo}
+                  onChange={(e) => setForm((f) => ({ ...f, repo: e.target.value }))}
+                  placeholder="next.js"
+                  className="mt-1 w-full max-w-xs rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Branch (optional)</label>
+                <input
+                  type="text"
+                  value={form.branch}
+                  onChange={(e) => setForm((f) => ({ ...f, branch: e.target.value }))}
+                  placeholder="main"
+                  className="mt-1 w-full max-w-xs rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Path prefix filter (optional)</label>
+                <input
+                  type="text"
+                  value={form.pathPrefix}
+                  onChange={(e) => setForm((f) => ({ ...f, pathPrefix: e.target.value }))}
+                  placeholder="src/"
+                  className="mt-1 w-full max-w-xs rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+            </>
+          )}
+          {form.type === "github_pull_requests" && (
+            <>
+              <div>
+                <label className="block text-sm text-gray-400">Owner</label>
+                <input
+                  type="text"
+                  value={form.owner}
+                  onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))}
+                  placeholder="vercel"
+                  className="mt-1 w-full max-w-xs rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Repo</label>
+                <input
+                  type="text"
+                  value={form.repo}
+                  onChange={(e) => setForm((f) => ({ ...f, repo: e.target.value }))}
+                  placeholder="next.js"
+                  className="mt-1 w-full max-w-xs rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">State</label>
+                <select
+                  value={form.state}
+                  onChange={(e) => setForm((f) => ({ ...f, state: e.target.value as "open" | "closed" | "all" }))}
+                  className="mt-1 w-full max-w-xs rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white"
+                >
+                  <option value="open">open</option>
+                  <option value="closed">closed</option>
+                  <option value="all">all</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Labels filter (comma-separated, optional)</label>
+                <input
+                  type="text"
+                  value={form.labels}
+                  onChange={(e) => setForm((f) => ({ ...f, labels: e.target.value }))}
+                  placeholder="bug,enhancement"
+                  className="mt-1 w-full max-w-md rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Base branch (optional)</label>
+                <input
+                  type="text"
+                  value={form.base}
+                  onChange={(e) => setForm((f) => ({ ...f, base: e.target.value }))}
+                  placeholder="main"
+                  className="mt-1 w-full max-w-xs rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+            </>
+          )}
+          {form.type === "sitemap" && (
+            <>
+              <div>
+                <label className="block text-sm text-gray-400">Sitemap URL</label>
+                <input
+                  type="url"
+                  value={form.url}
+                  onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+                  placeholder="https://example.com/sitemap.xml"
+                  className="mt-1 w-full max-w-md rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Mode</label>
+                <select
+                  value={form.sitemapMode}
+                  onChange={(e) => setForm((f) => ({ ...f, sitemapMode: e.target.value as "index" | "urls" }))}
+                  className="mt-1 w-full max-w-xs rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white"
+                >
+                  <option value="index">index (follow sitemap index)</option>
+                  <option value="urls">urls only</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Include URLs containing (comma, optional)</label>
+                <input
+                  type="text"
+                  value={form.include}
+                  onChange={(e) => setForm((f) => ({ ...f, include: e.target.value }))}
+                  placeholder="/docs/"
+                  className="mt-1 w-full max-w-md rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Exclude URLs containing (comma, optional)</label>
+                <input
+                  type="text"
+                  value={form.exclude}
+                  onChange={(e) => setForm((f) => ({ ...f, exclude: e.target.value }))}
+                  placeholder="/archive/"
+                  className="mt-1 w-full max-w-md rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+            </>
+          )}
+          {form.type === "html_change" && (
+            <>
+              <div>
+                <label className="block text-sm text-gray-400">Page URL</label>
+                <input
+                  type="url"
+                  value={form.url}
+                  onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+                  placeholder="https://example.com/changelog"
+                  className="mt-1 w-full max-w-md rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Marker: substring in HTML to hash (optional, not a CSS selector)</label>
+                <input
+                  type="text"
+                  value={form.marker}
+                  onChange={(e) => setForm((f) => ({ ...f, marker: e.target.value }))}
+                  placeholder="release-notes"
+                  className="mt-1 w-full max-w-md rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white placeholder-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400">Mode</label>
+                <select
+                  value={form.htmlMode}
+                  onChange={(e) => setForm((f) => ({ ...f, htmlMode: e.target.value as "etag" | "hash" | "both" }))}
+                  className="mt-1 w-full max-w-xs rounded-lg border border-wakenet-border bg-wakenet-bg px-3 py-2 text-white"
+                >
+                  <option value="etag">etag only</option>
+                  <option value="hash">hash only</option>
+                  <option value="both">both</option>
+                </select>
+              </div>
+            </>
+          )}
           <div>
             <label className="block text-sm text-gray-400">Poll interval (minutes)</label>
             <input
@@ -219,6 +491,18 @@ export default function AdminFeedsPage() {
                       "repo" in feed.config &&
                       `${feed.config.owner}/${feed.config.repo}`}
                     {feed.type === "http_json" && "url" in feed.config && String(feed.config.url)}
+                    {feed.type === "webhook_inbox" &&
+                      ("token" in feed.config ? `token: ${String(feed.config.token).slice(0, 8)}…` : "secret: …")}
+                    {feed.type === "github_commits" &&
+                      "owner" in feed.config &&
+                      "repo" in feed.config &&
+                      `${feed.config.owner}/${feed.config.repo}`}
+                    {feed.type === "github_pull_requests" &&
+                      "owner" in feed.config &&
+                      "repo" in feed.config &&
+                      `${feed.config.owner}/${feed.config.repo}`}
+                    {feed.type === "sitemap" && "url" in feed.config && String(feed.config.url)}
+                    {feed.type === "html_change" && "url" in feed.config && String(feed.config.url)}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">

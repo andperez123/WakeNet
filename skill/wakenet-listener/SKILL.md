@@ -6,7 +6,7 @@ metadata: {"openclaw":{"homepage":"https://wake-net.vercel.app","emoji":"📡"}}
 
 # WakeNet listener
 
-WakeNet delivers normalized, deduplicated events to a webhook or via pull so agents run only when something new happens (no polling).
+WakeNet delivers normalized, deduplicated events to a webhook or via pull so agents run only when something new happens (no polling). **WakeNet works out of the box with no API key**; authentication is optional and only required if the server enforces it.
 
 ## Required environment (MCP / API)
 

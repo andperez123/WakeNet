@@ -71,7 +71,7 @@ const server = new McpServer({
 
 server.tool(
   "wakenet_list_feeds",
-  "List all WakeNet feeds (RSS, GitHub Releases, HTTP JSON)",
+  "List all WakeNet feeds (all types: rss, github_releases, http_json, github_commits, github_pull_requests, webhook_inbox, sitemap, html_change)",
   {},
   async () => {
     const { data } = await wakenetFetch("/api/feeds");
@@ -81,48 +81,93 @@ server.tool(
 
 // ----- Create feed ---------------------------------------------------------
 
+const feedTypeEnum = z.enum([
+  "rss",
+  "github_releases",
+  "http_json",
+  "github_commits",
+  "github_pull_requests",
+  "webhook_inbox",
+  "sitemap",
+  "html_change",
+]);
+
 server.tool(
   "wakenet_create_feed",
-  "Create a new WakeNet feed. Type must be rss, github_releases, or http_json.",
+  "Create a new WakeNet feed. Supports rss, github_releases, http_json, github_commits, github_pull_requests, webhook_inbox, sitemap, html_change.",
   {
-    type: z
-      .enum(["rss", "github_releases", "http_json"])
-      .describe("Feed type"),
-    url: z
-      .string()
-      .optional()
-      .describe("Feed URL (required for rss and http_json)"),
-    owner: z
-      .string()
-      .optional()
-      .describe("GitHub owner (required for github_releases)"),
-    repo: z
-      .string()
-      .optional()
-      .describe("GitHub repo (required for github_releases)"),
+    type: feedTypeEnum.describe("Feed type"),
+    url: z.string().optional().describe("Feed/page URL (rss, http_json, sitemap, html_change)"),
+    path: z.string().optional().describe("JSON path to array (http_json only)"),
+    owner: z.string().optional().describe("GitHub owner (github_releases, github_commits, github_pull_requests)"),
+    repo: z.string().optional().describe("GitHub repo (github_releases, github_commits, github_pull_requests)"),
+    token: z.string().optional().describe("Ingest token for webhook_inbox (used in POST /api/ingest/webhook/:token)"),
+    branch: z.string().optional().describe("Branch (github_commits only; default = repo default)"),
+    pathPrefix: z.string().optional().describe("Path prefix filter (github_commits only)"),
+    state: z.enum(["open", "closed", "all"]).optional().describe("PR state (github_pull_requests only)"),
+    labels: z.array(z.string()).optional().describe("Label filter (github_pull_requests only)"),
+    base: z.string().optional().describe("Base branch (github_pull_requests only)"),
+    sitemapMode: z.enum(["index", "urls"]).optional().describe("Sitemap mode: follow index or urls only"),
+    include: z.array(z.string()).optional().describe("Include URLs containing (sitemap; substring match)"),
+    exclude: z.array(z.string()).optional().describe("Exclude URLs containing (sitemap; substring match)"),
+    marker: z.string().optional().describe("HTML substring to hash (html_change only; not a CSS selector)"),
+    htmlMode: z.enum(["etag", "hash", "both"]).optional().describe("html_change detection mode"),
     pollIntervalMinutes: z
       .number()
       .int()
       .min(1)
       .max(1440)
       .optional()
-      .describe("Poll interval in minutes (default 15)"),
+      .describe("Poll interval in minutes (default 15; ignored for webhook_inbox)"),
   },
-  async ({ type, url, owner, repo, pollIntervalMinutes }) => {
+  async (params) => {
+    const { type, pollIntervalMinutes } = params;
     let config: Record<string, unknown> = {};
+
     if (type === "rss" || type === "http_json") {
-      if (!url) return textResult({ error: "url is required for rss / http_json" });
-      config = { url };
+      if (!params.url) return textResult({ error: "url is required for rss / http_json" });
+      config = { url: params.url };
+      if (type === "http_json" && params.path) config.path = params.path;
     } else if (type === "github_releases") {
-      if (!owner || !repo)
+      if (!params.owner || !params.repo)
         return textResult({ error: "owner and repo are required for github_releases" });
-      config = { owner, repo };
+      config = { owner: params.owner, repo: params.repo };
+    } else if (type === "github_commits") {
+      if (!params.owner || !params.repo)
+        return textResult({ error: "owner and repo are required for github_commits" });
+      config = { owner: params.owner, repo: params.repo };
+      if (params.branch) config.branch = params.branch;
+      if (params.pathPrefix) config.pathPrefix = params.pathPrefix;
+    } else if (type === "github_pull_requests") {
+      if (!params.owner || !params.repo)
+        return textResult({ error: "owner and repo are required for github_pull_requests" });
+      config = { owner: params.owner, repo: params.repo };
+      if (params.state) config.state = params.state;
+      if (params.labels?.length) config.labels = params.labels;
+      if (params.base) config.base = params.base;
+    } else if (type === "webhook_inbox") {
+      if (!params.token) return textResult({ error: "token is required for webhook_inbox" });
+      config = { token: params.token };
+    } else if (type === "sitemap") {
+      if (!params.url) return textResult({ error: "url is required for sitemap" });
+      config = { url: params.url };
+      if (params.sitemapMode) config.mode = params.sitemapMode;
+      if (params.include?.length) config.include = params.include;
+      if (params.exclude?.length) config.exclude = params.exclude;
+    } else if (type === "html_change") {
+      if (!params.url) return textResult({ error: "url is required for html_change" });
+      config = { url: params.url };
+      if (params.marker) config.marker = params.marker;
+      if (params.htmlMode) config.mode = params.htmlMode;
     }
 
-    const { data } = await wakenetFetch("/api/feeds", {
-      method: "POST",
-      body: { type, config, pollIntervalMinutes: pollIntervalMinutes ?? 15 },
-    });
+    const body: { type: string; config: Record<string, unknown>; pollIntervalMinutes?: number } = {
+      type,
+      config,
+    };
+    if (type !== "webhook_inbox") body.pollIntervalMinutes = pollIntervalMinutes ?? 15;
+
+    const { data } = await wakenetFetch("/api/feeds", { method: "POST", body });
     return textResult(data);
   }
 );
@@ -297,10 +342,11 @@ server.tool(
     if (matches.length > 0) {
       const newest = matches.sort(
         (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-      )[0];
+      )[0] as { id?: string; feedId?: string; name?: string; webhookUrl?: string | null; createdAt?: string; [k: string]: unknown };
+      const mode = newest.webhookUrl ? "webhook" : "pull";
       return textResult({
         found: true,
-        subscription: newest,
+        subscription: { ...newest, subscriptionId: newest.id, mode },
         message: "Subscription already exists (uniqueness: feedId + name).",
         warning: matches.length > 1 ? `Multiple subscriptions matched; returned newest (${matches.length} total).` : undefined,
       });
@@ -321,7 +367,8 @@ server.tool(
       method: "POST",
       body,
     });
-    return textResult({ found: false, subscription: created, message: "Subscription created." });
+    // API returns subscriptionId, mode, webhookSecret (when webhook)
+    return textResult({ found: false, subscription: created, message: "Subscription created. Persist subscriptionId (and webhookSecret if webhook) from the returned subscription." });
   }
 );
 
@@ -346,7 +393,7 @@ server.tool(
       return textResult({
         ok: false,
         steps,
-        remediation: "Check WAKENET_BASE_URL and that the WakeNet instance is up. If using API key, set WAKENET_API_KEY.",
+        remediation: "Check WAKENET_BASE_URL and that the WakeNet instance is up. If you see 401, this server requires an API key.",
       });
     }
 
@@ -370,7 +417,7 @@ server.tool(
       return textResult({
         ok: false,
         steps,
-        remediation: "Create feed failed. If 401: set WAKENET_API_KEY. If 503: check WakeNet DB.",
+        remediation: "Create feed failed. If 401: this server requires an API key. If 503: check WakeNet DB.",
       });
     }
 
@@ -386,7 +433,7 @@ server.tool(
       detail: subOk ? `Subscription ${subId}` : String((subData as { error?: string })?.error ?? subData),
     });
     if (!subId) {
-      return textResult({ ok: false, steps, remediation: "Create subscription failed. Check API key and feed ID." });
+      return textResult({ ok: false, steps, remediation: "Create subscription failed. If 401: this server requires an API key. Otherwise check feed ID." });
     }
 
     const { ok: pollOk, data: pollData } = await wakenetFetch(`/api/poll/${feedId}`, { method: "POST" });
@@ -413,7 +460,7 @@ server.tool(
       warning: allOk && items.length === 0 ? "No events yet (first poll or empty feed is normal; not a failure)." : undefined,
       remediation: allOk
         ? undefined
-        : "Fix the first failing step. Common: 401 = add WAKENET_API_KEY; 503 = WakeNet DB down.",
+        : "Fix the first failing step. Common: 401 = this server requires an API key; 503 = WakeNet DB down.",
     });
   }
 );

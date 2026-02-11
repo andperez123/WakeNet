@@ -17,7 +17,7 @@ export function requireApiKey(req: Request): NextResponse | null {
   const header = req.headers.get("authorization");
   if (!header) {
     return NextResponse.json(
-      { error: "Missing Authorization header. Use: Bearer <WAKENET_API_KEY>" },
+      { error: "This server requires an API key. Send it in the Authorization header as Bearer <key>." },
       { status: 401 }
     );
   }
@@ -25,7 +25,7 @@ export function requireApiKey(req: Request): NextResponse | null {
   const [scheme, token] = header.split(" ");
   if (scheme?.toLowerCase() !== "bearer" || token !== apiKey) {
     return NextResponse.json(
-      { error: "Invalid API key" },
+      { error: "This server requires an API key. The provided key is invalid." },
       { status: 401 }
     );
   }

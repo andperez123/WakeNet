@@ -53,5 +53,12 @@ export async function POST(req: Request) {
       digestScheduleTime: parsed.data.digestScheduleTime ? normalizeHHMM(parsed.data.digestScheduleTime) : null,
     })
     .returning();
-  return NextResponse.json({ ...sub, secret }); // return secret only on create
+  const mode = sub.webhookUrl ? "webhook" as const : "pull" as const;
+  return NextResponse.json({
+    ...sub,
+    secret,
+    subscriptionId: sub.id,
+    mode,
+    ...(mode === "webhook" && { webhookSecret: secret }),
+  });
 }
