@@ -260,14 +260,16 @@ server.tool(
 
 server.tool(
   "wakenet_pull_events",
-  "Pull delivered events for a pull-enabled subscription (no webhook needed)",
+  "Pull delivered events for a pull-enabled subscription (no webhook). Pass after (cursor from previous response) to get only new events (consume-once).",
   {
     subscriptionId: z.string().uuid().describe("ID of the pull-enabled subscription"),
+    after: z.string().optional().describe("Cursor from previous response nextCursor (ISO timestamp); omit for first call"),
   },
-  async ({ subscriptionId }) => {
-    const { data } = await wakenetFetch(
-      `/api/subscriptions/${subscriptionId}/pull`
-    );
+  async ({ subscriptionId, after }) => {
+    const path = after
+      ? `/api/subscriptions/${subscriptionId}/pull?after=${encodeURIComponent(after)}`
+      : `/api/subscriptions/${subscriptionId}/pull`;
+    const { data } = await wakenetFetch(path);
     return textResult(data);
   }
 );
@@ -395,7 +397,7 @@ server.tool(
     });
 
     const { ok: pullOk, data: pullData } = await wakenetFetch(`/api/subscriptions/${subId}/pull`);
-    const items = Array.isArray(pullData) ? pullData : [];
+    const items = pullData && typeof pullData === "object" && "items" in pullData ? (pullData as { items: unknown[] }).items : [];
     steps.push({
       step: "pull_events",
       ok: pullOk,

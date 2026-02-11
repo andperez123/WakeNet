@@ -387,10 +387,10 @@ export default function Home() {
             </p>
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Link
-                href="/docs#quick-start"
+                href="/docs/integrate"
                 className="inline-flex items-center gap-2 rounded-lg bg-wakenet-accent px-5 py-3 text-sm font-semibold text-wakenet-bg transition hover:bg-wakenet-accent/90"
               >
-                Install WakeNet
+                Integrate your agent
                 <span>→</span>
               </Link>
               <Link

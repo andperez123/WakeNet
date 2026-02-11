@@ -20,26 +20,28 @@ const WAKENET_BASE_URL = (process.env.WAKENET_BASE_URL || "https://wake-net.verc
 const SUB_ID = process.env.WAKENET_SUBSCRIPTION_ID;
 const INTERVAL_MIN = Number(process.env.PULL_INTERVAL_MINUTES) || 5;
 
-const seenEventIds = new Set<string>();
+let nextCursor: string | null = null;
 
 async function pull(): Promise<void> {
   if (!SUB_ID) {
     console.error("WAKENET_SUBSCRIPTION_ID is not set");
     return;
   }
-  const res = await fetch(`${WAKENET_BASE_URL}/api/subscriptions/${SUB_ID}/pull`);
+  const url = nextCursor
+    ? `${WAKENET_BASE_URL}/api/subscriptions/${SUB_ID}/pull?after=${encodeURIComponent(nextCursor)}`
+    : `${WAKENET_BASE_URL}/api/subscriptions/${SUB_ID}/pull`;
+  const res = await fetch(url);
   if (!res.ok) {
     console.error("Pull failed:", res.status, await res.text());
     return;
   }
-  const items = (await res.json()) as { eventId?: string; deliveryId?: string; event?: unknown; createdAt?: string }[];
+  const body = (await res.json()) as { items: { eventId?: string; deliveryId?: string; event?: unknown; createdAt?: string }[]; nextCursor: string | null };
+  const items = body.items ?? [];
   for (const item of items) {
-    const id = item.eventId ?? item.deliveryId ?? JSON.stringify(item);
-    if (seenEventIds.has(id)) continue;
-    seenEventIds.add(id);
     // Handle the event (e.g. trigger agent, append to queue)
-    console.log(JSON.stringify({ eventId: id, event: item.event, createdAt: item.createdAt }));
+    console.log(JSON.stringify({ eventId: item.eventId ?? item.deliveryId, event: item.event, createdAt: item.createdAt }));
   }
+  if (body.nextCursor) nextCursor = body.nextCursor;
 }
 
 async function loop(): Promise<void> {
